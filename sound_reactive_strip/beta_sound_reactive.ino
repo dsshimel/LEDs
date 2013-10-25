@@ -39,12 +39,19 @@ int curRainbowColor = 0; // start at red
 int targetRainbowColor = 1; // proceed to orange
 boolean reverseRainbow = false;
 RGB curRgb;
-RGB targetRgb;
-int numPatterns = 5;
+RGB nextRgb;
+RGB startLeftRgb;
+RGB startRightRgb;
+RGB curLeftRgb;
+RGB curRightRgb;
+RGB nextLeftRgb;
+RGB nextRightRgb;
+int numPatterns = 6;
 int curPattern = 0;
-int numColorStrats = 5;
+int numColorStrats = 7;
 int curColorStrat = 0;
 boolean reverse110 = false;
+boolean reverseFillPercentage = false;
 float brightness = 1.0;
 
 void setup() {
@@ -118,21 +125,25 @@ void loop() {
   if(iterations == 0) {
     curPattern = random(numPatterns);
     switch(curPattern) {
-    case 0:
-      break;
-    case 1:
-      initCellsForRule110();
-      reverse110 = !reverse110;
-      break;
-    case 2:
-      break;
-    case 3:
-      break;
-    case 4:
-      initCellsForParticle();
-      // have to know the value of numPatterns
+      case 0:
+        break;
+      case 1:
+        initCellsForRule110();
+        reverse110 = !reverse110;
+        break;
+      case 2:
+        break;
+      case 3:
+        reverseFillPercentage = !reverseFillPercentage;
+        break;
+      case 4:
+        initCellsForParticle();
+        break;
+      case 5:
+        break;
     }
 
+    // initializations for the various color strategies
     curColorStrat = random(numColorStrats);
     switch(curColorStrat) {
       case 0:
@@ -143,7 +154,7 @@ void loop() {
         break;
       case 3:
         randomizeRGB(&curRgb);
-        randomizeRGB(&targetRgb);
+        randomizeRGB(&nextRgb);
         colorDuration = 1 + random(maxColorDuration);
         break;
       case 4:
@@ -158,6 +169,32 @@ void loop() {
           targetRainbowColor = (curRainbowColor + 1) % 6;
         }
         rainbowDuration = 1 + random(maxRainbowDuration);
+        break;
+      case 5:
+        randomizeRGB(&startLeftRgb);
+        curLeftRgb.r = startLeftRgb.r;
+        curLeftRgb.g = startLeftRgb.g;
+        curLeftRgb.b = startLeftRgb.b;        
+        randomizeRGB(&startRightRgb);
+        curRightRgb.r = startRightRgb.r;
+        curRightRgb.g = startRightRgb.g;
+        curRightRgb.b = startRightRgb.b;        
+        randomizeRGB(&nextLeftRgb);        
+        randomizeRGB(&nextRightRgb);
+        colorDuration = 1 + random(maxColorDuration);        
+        break;
+      case 6:
+        randomizeRGB(&startLeftRgb);
+        curLeftRgb.r = startLeftRgb.r;
+        curLeftRgb.g = startLeftRgb.g;
+        curLeftRgb.b = startLeftRgb.b;        
+        randomizeRGB(&startRightRgb);
+        curRightRgb.r = startRightRgb.r;
+        curRightRgb.g = startRightRgb.g;
+        curRightRgb.b = startRightRgb.b;        
+        randomizeRGB(&nextLeftRgb);        
+        randomizeRGB(&nextRightRgb);
+        colorDuration = 1 + random(maxColorDuration);        
         break;
     }
   }
@@ -218,6 +255,12 @@ void loop() {
       case 4:
         fadeThroughRainbow(iterations, rainbowDuration);
         break;
+      case 5:
+        fadeBetweenTwoColorGradient(iterations, colorDuration);
+        break;
+      case 6:
+        fadeBetweenTwoColorGradient(iterations, colorDuration, percent);
+        break;        
     }
 
     switch(curPattern) {
@@ -231,14 +274,19 @@ void loop() {
         lightWholeStripAtPercentage(percent);
         break;
       case 3:
-        fillPercentageOfStrip(percent);
+        fillPercentageOfStrip(percent, reverseFillPercentage);
         break;
       case 4:
         if(adjustedRange) {
           cells[0] = true;
         }
         moveParticle(percent);
-        // have to know the value of numPatterns
+        break;
+      case 5:
+        if(random(50) == 0)
+          reverseFillPercentage = !reverseFillPercentage;
+        fillPercentageOfStrip(percent, reverseFillPercentage);
+        break;        
     }
 
     // only increment the iterations if we actually ran a pattern
@@ -252,15 +300,15 @@ void loop() {
 void fadeToTargetColorRandom(int iterations, int duration) {
   int t = iterations % duration;
   if(t == 0) {
-    curRgb.r = targetRgb.r;
-    curRgb.g = targetRgb.g;
-    curRgb.b = targetRgb.b;    
-    randomizeRGB(&targetRgb);
+    curRgb.r = nextRgb.r;
+    curRgb.g = nextRgb.g;
+    curRgb.b = nextRgb.b;    
+    randomizeRGB(&nextRgb);
   }
   for(int i = 0; i < nLEDs; i++) {
-    colors[i].r = curRgb.r + t * (targetRgb.r - curRgb.r) / duration;
-    colors[i].g = curRgb.g + t * (targetRgb.g - curRgb.g) / duration;
-    colors[i].b = curRgb.b + t * (targetRgb.b - curRgb.b) / duration;  
+    colors[i].r = curRgb.r + t * (nextRgb.r - curRgb.r) / duration;
+    colors[i].g = curRgb.g + t * (nextRgb.g - curRgb.g) / duration;
+    colors[i].b = curRgb.b + t * (nextRgb.b - curRgb.b) / duration;  
   }
 }
 
@@ -288,6 +336,51 @@ void fadeThroughRainbow(int iterations, int duration) {
     colors[i].b = cur.b + t * (target.b - cur.b) / duration;  
   }
 }
+
+void fadeBetweenTwoColorGradient(int iterations, int duration) {
+  fadeBetweenTwoColorGradient(iterations, duration, 0);
+}
+
+void fadeBetweenTwoColorGradient(int iterations, int duration, float percentOffset) {
+  // 1. move the end colors one step closer to their next colors
+  int t = iterations % duration;
+    
+  if(t == 0) {
+    startLeftRgb.r = nextLeftRgb.r;
+    startLeftRgb.g = nextLeftRgb.g;
+    startLeftRgb.b = nextLeftRgb.b;
+    curLeftRgb.r = startLeftRgb.r;
+    curLeftRgb.g = startLeftRgb.g;
+    curLeftRgb.b = startLeftRgb.b;    
+    startRightRgb.r = nextRightRgb.r;
+    startRightRgb.g = nextRightRgb.g;
+    startRightRgb.b = nextRightRgb.b;    
+    curRightRgb.r = startRightRgb.r;
+    curRightRgb.g = startRightRgb.g;
+    curRightRgb.b = startRightRgb.b;    
+    randomizeRGB(&nextLeftRgb);
+    randomizeRGB(&nextRightRgb);    
+  }
+
+  curLeftRgb.r = startLeftRgb.r + t * (nextLeftRgb.r - startLeftRgb.r) / duration;
+  curLeftRgb.g = startLeftRgb.g + t * (nextLeftRgb.g - startLeftRgb.g) / duration;
+  curLeftRgb.b = startLeftRgb.b + t * (nextLeftRgb.b - startLeftRgb.b) / duration;
+  curRightRgb.r = startRightRgb.r + t * (nextRightRgb.r - startRightRgb.r) / duration;
+  curRightRgb.g = startRightRgb.g + t * (nextRightRgb.g - startRightRgb.g) / duration;
+  curRightRgb.b = startRightRgb.b + t * (nextRightRgb.b - startRightRgb.b) / duration;
+
+  // 2. set the gradient between the two colors along the strip
+  // based on the LED index
+  // here, "t" goes from 0 to nLEDs - 1 (so you lose a little on one of the ends)
+  int offset = nLEDs * percentOffset;
+  for(int i = 0; i < nLEDs; i++) {
+    int factor = (i + offset) % nLEDs;
+    colors[i].r = curLeftRgb.r + factor * (curRightRgb.r - curLeftRgb.r) / nLEDs;
+    colors[i].g = curLeftRgb.g + factor * (curRightRgb.g - curLeftRgb.g) / nLEDs;
+    colors[i].b = curLeftRgb.b + factor * (curRightRgb.b - curLeftRgb.b) / nLEDs;    
+  }
+}
+  
 
 void setRGBFromIndexAndOffset(int i, int offset) {
   int index = (i + offset) % nLEDs;
@@ -409,14 +502,22 @@ void clearStrip() {
   strip.show();
 }
 
-void fillPercentageOfStrip(float percent) {
+void fillPercentageOfStrip(float percent, boolean reverse) {
   int ledsToLight = nLEDs * percent;
 
   for(int i = 0; i < ledsToLight; i++) {
-    setPixelColor(i, colors[i].r, colors[i].g, colors[i].b);
+    int index = i;
+    if(reverse) {
+      index = nLEDs - i - 1;
+    }
+    setPixelColor(index, colors[index].r, colors[index].g, colors[index].b);
   }
   for(int i = ledsToLight; i < nLEDs; i++) {
-    setPixelColor(i, 0, 0, 0);
+    int index = i;
+    if(reverse) {
+      index = nLEDs - i - 1;
+    }
+    setPixelColor(index, 0, 0, 0);
   }
   strip.show();
 }
